@@ -40,13 +40,6 @@
   <build>
     <plugins>
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <generatedSourcesDirectory>src/gen/java</generatedSourcesDirectory>
-        </configuration>
-      </plugin>
-      <plugin>
         <groupId>org.openapitools</groupId>
         <artifactId>openapi-generator-maven-plugin</artifactId>
         <!-- RELEASE_VERSION -->
