@@ -13,22 +13,38 @@
 package org.openhab.ui.cometvisu.internal.backend.rest;
 
 import java.io.IOException;
+import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpClient.Redirect;
 import java.net.http.HttpRequest;
+import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
+import java.security.GeneralSecurityException;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.util.Base64;
-import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLParameters;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509ExtendedTrustManager;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
@@ -75,7 +91,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 public class ProxyResource implements RESTResource {
     private final Logger logger = LoggerFactory.getLogger(ProxyResource.class);
 
-    HttpClient client = HttpClient.newBuilder().followRedirects(Redirect.NORMAL).build();
+    HttpClient client = Objects.requireNonNull(HttpClient.newBuilder().followRedirects(Redirect.NORMAL).build());
+
+    private volatile @Nullable HttpClient trustAllClient;
 
     @GET
     @Produces({ MediaType.APPLICATION_JSON, MediaType.MEDIA_TYPE_WILDCARD })
@@ -88,7 +106,120 @@ public class ProxyResource implements RESTResource {
     public Response proxy(
             @Parameter(description = "URL this request should be sent to", content = @Content(schema = @Schema(implementation = String.class, defaultValue = ""))) @QueryParam("url") @Nullable String url,
             @Parameter(description = "optional authorization token", content = @Content(schema = @Schema(implementation = String.class, defaultValue = ""))) @QueryParam("auth-type") @Nullable String authType,
-            @Parameter(description = "use information from hidden config section", content = @Content(schema = @Schema(implementation = String.class, defaultValue = ""))) @QueryParam("config-section") @Nullable String configSection) {
+            @Parameter(description = "use information from hidden config section", content = @Content(schema = @Schema(implementation = String.class, defaultValue = ""))) @QueryParam("config-section") @Nullable String configSection,
+            @Parameter(description = "accept self-signed certificates") @QueryParam("self-signed") @Nullable Boolean selfSigned) {
+        return proxyRequest("GET", url, authType, configSection, selfSigned, null, null);
+    }
+
+    @POST
+    @Consumes(MediaType.WILDCARD)
+    @Produces({ MediaType.APPLICATION_JSON, MediaType.MEDIA_TYPE_WILDCARD })
+    @Operation(summary = "proxy a POST request", responses = { @ApiResponse(responseCode = "200", description = "OK"),
+            @ApiResponse(responseCode = "400", description = "Bad request"),
+            @ApiResponse(responseCode = "403", description = "Forbidden"),
+            @ApiResponse(responseCode = "404", description = "Not found"),
+            @ApiResponse(responseCode = "500", description = "Internal server error") })
+    public Response postProxied(
+            @Parameter(description = "URL this request should be sent to", content = @Content(schema = @Schema(implementation = String.class, defaultValue = ""))) @QueryParam("url") @Nullable String url,
+            @Parameter(description = "optional authorization token", content = @Content(schema = @Schema(implementation = String.class, defaultValue = ""))) @QueryParam("auth-type") @Nullable String authType,
+            @Parameter(description = "use information from hidden config section", content = @Content(schema = @Schema(implementation = String.class, defaultValue = ""))) @QueryParam("config-section") @Nullable String configSection,
+            @Parameter(description = "accept self-signed certificates") @QueryParam("self-signed") @Nullable Boolean selfSigned,
+            @Context HttpHeaders headers, byte @Nullable [] body) {
+        return proxyRequest("POST", url, authType, configSection, selfSigned, body,
+                headers.getHeaderString(HttpHeaders.CONTENT_TYPE));
+    }
+
+    @PUT
+    @Consumes(MediaType.WILDCARD)
+    @Produces({ MediaType.APPLICATION_JSON, MediaType.MEDIA_TYPE_WILDCARD })
+    @Operation(summary = "proxy a PUT request", responses = { @ApiResponse(responseCode = "200", description = "OK"),
+            @ApiResponse(responseCode = "400", description = "Bad request"),
+            @ApiResponse(responseCode = "403", description = "Forbidden"),
+            @ApiResponse(responseCode = "404", description = "Not found"),
+            @ApiResponse(responseCode = "500", description = "Internal server error") })
+    public Response putProxied(
+            @Parameter(description = "URL this request should be sent to", content = @Content(schema = @Schema(implementation = String.class, defaultValue = ""))) @QueryParam("url") @Nullable String url,
+            @Parameter(description = "optional authorization token", content = @Content(schema = @Schema(implementation = String.class, defaultValue = ""))) @QueryParam("auth-type") @Nullable String authType,
+            @Parameter(description = "use information from hidden config section", content = @Content(schema = @Schema(implementation = String.class, defaultValue = ""))) @QueryParam("config-section") @Nullable String configSection,
+            @Parameter(description = "accept self-signed certificates") @QueryParam("self-signed") @Nullable Boolean selfSigned,
+            @Context HttpHeaders headers, byte @Nullable [] body) {
+        return proxyRequest("PUT", url, authType, configSection, selfSigned, body,
+                headers.getHeaderString(HttpHeaders.CONTENT_TYPE));
+    }
+
+    @DELETE
+    @Consumes(MediaType.WILDCARD)
+    @Produces({ MediaType.APPLICATION_JSON, MediaType.MEDIA_TYPE_WILDCARD })
+    @Operation(summary = "proxy a DELETE request", responses = { @ApiResponse(responseCode = "200", description = "OK"),
+            @ApiResponse(responseCode = "400", description = "Bad request"),
+            @ApiResponse(responseCode = "403", description = "Forbidden"),
+            @ApiResponse(responseCode = "404", description = "Not found"),
+            @ApiResponse(responseCode = "500", description = "Internal server error") })
+    public Response deleteProxied(
+            @Parameter(description = "URL this request should be sent to", content = @Content(schema = @Schema(implementation = String.class, defaultValue = ""))) @QueryParam("url") @Nullable String url,
+            @Parameter(description = "optional authorization token", content = @Content(schema = @Schema(implementation = String.class, defaultValue = ""))) @QueryParam("auth-type") @Nullable String authType,
+            @Parameter(description = "use information from hidden config section", content = @Content(schema = @Schema(implementation = String.class, defaultValue = ""))) @QueryParam("config-section") @Nullable String configSection,
+            @Parameter(description = "accept self-signed certificates") @QueryParam("self-signed") @Nullable Boolean selfSigned,
+            @Context HttpHeaders headers) {
+        return proxyRequest("DELETE", url, authType, configSection, selfSigned, null,
+                headers.getHeaderString(HttpHeaders.CONTENT_TYPE));
+    }
+
+    private HttpClient getTrustAllClient() throws IOException {
+        HttpClient local = trustAllClient;
+        if (local == null) {
+            try {
+                SSLContext context = SSLContext.getInstance("TLS");
+                context.init(null, new TrustManager[] { new X509ExtendedTrustManager() {
+                    @Override
+                    public void checkClientTrusted(X509Certificate @Nullable [] chain, @Nullable String authType,
+                            @Nullable Socket socket) {
+                    }
+
+                    @Override
+                    public void checkServerTrusted(X509Certificate @Nullable [] chain, @Nullable String authType,
+                            @Nullable Socket socket) {
+                    }
+
+                    @Override
+                    public void checkClientTrusted(X509Certificate @Nullable [] chain, @Nullable String authType,
+                            @Nullable SSLEngine engine) {
+                    }
+
+                    @Override
+                    public void checkServerTrusted(X509Certificate @Nullable [] chain, @Nullable String authType,
+                            @Nullable SSLEngine engine) {
+                    }
+
+                    @Override
+                    public void checkClientTrusted(X509Certificate @Nullable [] chain, @Nullable String authType) {
+                    }
+
+                    @Override
+                    public void checkServerTrusted(X509Certificate @Nullable [] chain, @Nullable String authType) {
+                    }
+
+                    @Override
+                    public X509Certificate[] getAcceptedIssuers() {
+                        return new X509Certificate[0];
+                    }
+                } }, new SecureRandom());
+                SSLParameters params = new SSLParameters();
+                // hostname verification has to be disabled as well for self-signed certificates
+                params.setEndpointIdentificationAlgorithm("");
+                local = Objects.requireNonNull(HttpClient.newBuilder().followRedirects(Redirect.NORMAL)
+                        .sslContext(context).sslParameters(params).build());
+                trustAllClient = local;
+            } catch (GeneralSecurityException e) {
+                throw new IOException(e);
+            }
+        }
+        return local;
+    }
+
+    private Response proxyRequest(String method, @Nullable String url, @Nullable String authType,
+            @Nullable String configSection, @Nullable Boolean selfSigned, byte @Nullable [] body,
+            @Nullable String requestContentType) {
         ConfigSection sec = null;
         String queryUrl = url != null ? url : "";
         HiddenConfig config = ConfigResource.loadHiddenConfig();
@@ -98,19 +229,19 @@ public class ProxyResource implements RESTResource {
             if (sec != null) {
                 String configUrl = sec.get("uri");
                 if (configUrl == null) {
-                    return Response.status(Status.INTERNAL_SERVER_ERROR).build();
+                    return Objects.requireNonNull(Response.status(Status.INTERNAL_SERVER_ERROR).build());
                 }
                 queryUrl = configUrl;
             } else {
-                return Response.status(Status.NOT_FOUND).build();
+                return Objects.requireNonNull(Response.status(Status.NOT_FOUND).build());
             }
         } else if (url == null || url.isBlank()) {
-            return Response.status(Status.BAD_REQUEST).build();
+            return Objects.requireNonNull(Response.status(Status.BAD_REQUEST).build());
         } else {
             ConfigSection whiteList = config.get("proxy.whitelist");
             boolean allowed = false;
             if (whiteList != null) {
-                for (Map.Entry<String, String> entry : whiteList.entrySet()) {
+                for (var entry : whiteList.entrySet()) {
                     String value = entry.getValue();
                     if (value.startsWith("/") && value.endsWith("/")) {
                         Pattern pattern = Pattern.compile(value.substring(1, value.length() - 1),
@@ -127,7 +258,7 @@ public class ProxyResource implements RESTResource {
                 }
             }
             if (!allowed) {
-                return Response.status(Status.FORBIDDEN).build();
+                return Objects.requireNonNull(Response.status(Status.FORBIDDEN).build());
             }
         }
         logger.info("proxying request to {}", queryUrl);
@@ -146,9 +277,16 @@ public class ProxyResource implements RESTResource {
                     break;
             }
         }
+        if (requestContentType != null && !requestContentType.isBlank()) {
+            requestBuilder.header("Content-Type", requestContentType);
+        }
+        requestBuilder.method(method,
+                body != null && body.length > 0 ? BodyPublishers.ofByteArray(body) : BodyPublishers.noBody());
         var request = requestBuilder.build();
         try {
-            HttpResponse<byte[]> response = this.client.send(request, BodyHandlers.ofByteArray());
+            @SuppressWarnings("null")
+            HttpResponse<byte[]> response = (Boolean.TRUE.equals(selfSigned) ? getTrustAllClient() : this.client)
+                    .send(request, BodyHandlers.ofByteArray());
             byte[] rawData = response.body();
             var builder = Response.status(response.statusCode());
             var type = response.headers().firstValue("Content-Type");
@@ -165,7 +303,7 @@ public class ProxyResource implements RESTResource {
                     builder.entity(rawData);
                 }
             }
-            return builder.build();
+            return Objects.requireNonNull(builder.build());
         } catch (IOException | InterruptedException e) {
             return FsUtil.createErrorResponse(Status.BAD_REQUEST, e.getLocalizedMessage());
         }
