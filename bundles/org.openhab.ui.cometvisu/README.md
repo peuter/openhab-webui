@@ -67,27 +67,7 @@ Please note that, when you activate this feature, the latest release of the Come
 The CometVisu is licensed under the GNU General Public License v3.0.
 If you do not agree to this license, you must not activate this feature.
 
-Enable icon mapping from openHAB-items to CometVisu-items (Note this is only needed if you use the automatic sitemap->config generation feature).
-
-```
-icons>enableMapping=true
-```
-
-List of mappings of structure: icons.mapping\>\<openhab-icon\>=\<cometvisu-icon\>
-
-```
-icons.mapping>firstfloor=control_building_int_og
-cons.mapping>groundfloor=control_building_int_eg
-
-```
-
-The list of icons in the CometVisu is available at:
-
-```
-http://<openhab-server>:8080/<webAlias>/icon/knx-uf-iconset/showicons.php
-```
-
-You can also customize the mounted folders in the CometVisu manager. The CometVisu manager can only access
+You can customize the mounted folders in the CometVisu manager. The CometVisu manager can only access
 files/folders in the resource/config folder. In order to make other files of the CometVisu available mount points
 are used and this feature is used in order to make the demo config folder accessible.
 You can add further mount points if you need to access other resources in the cometvisu. Please keep in mind that
@@ -135,17 +115,6 @@ Or for design customizations use:
 ### Client configuration
 
 If you don´t use the given example below, please make sure that you correctly configure openHAB as backend in the CometVisu-Config by adding `backend="openhab"` to the root pages-element (e.g. `<pages...backend="openhab"...>`)
-
-It is a good start to use the new sitemap support, to get a working example config, which you can store an customize for your needs.
-Open a sitemap in the CometVisu client like this:
-
-```
-http://<openhab-server>:8080/<webAlias>/?config=<sitemap-name>
-```
-
-You can use the editor to change and store this config.
-You can start with the demo-sitemap to get a quick overview about how the CometVisu looks like.
-
 
 ## Examples
 
@@ -269,8 +238,6 @@ Plugins that use custom PHP code, do not work when you use this binding to serve
 * Direct influxdb support in diagrams
 * TR064 plugin (use openHABs TR064 binding instead)
 * upnpcontroller plugin
-
-The sitemap support can only be used as a starting point for own customizations, e.g. you open an automatic generated config and store it in by CometVisu by using the editor. Then you start to customize it to your own needs. New items must by added by hand from the moment you stored and changed the generated config.
 
 ### 404 error
 

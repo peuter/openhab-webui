@@ -59,7 +59,6 @@ public class Config {
 
     public static final String COMETVISU_CONFIG = "org.openhab.cometvisu";
     public static final String COMETVISU_ICON_CONFIG = "icons";
-    public static final String COMETVISU_ICON_MAPPING_CONFIG = "icons.mapping";
     public static final String COMETVISU_ICON_ENABLE_MAPPING_PROPERTY = "enableMapping";
     public static final String COMETVISU_WEBFOLDER_PROPERTY = "webFolder";
     public static final String COMETVISU_AUTODOWNLOAD_PROPERTY = "autoDownload";
@@ -83,7 +82,6 @@ public class Config {
     public static final String COMETVISU_BACKEND_CONFIG_ALIAS = "config";
 
     public static Hashtable<String, Object> iconConfig = new Hashtable<>();
-    public static Hashtable<String, Object> iconMappings = new Hashtable<>();
     public static Hashtable<String, Object> mountPoints = new Hashtable<>();
 
     public static Hashtable<String, Hashtable<String, Object>> configMappings = new Hashtable<>();
@@ -95,7 +93,6 @@ public class Config {
 
     static {
         configMappings.put(COMETVISU_ICON_CONFIG, iconConfig);
-        configMappings.put(COMETVISU_ICON_MAPPING_CONFIG, iconMappings);
         configMappings.put(COMETVISU_MOUNTPOINTS, mountPoints);
 
         itemTypeMapper.put("number", DecimalType.class);

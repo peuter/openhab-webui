@@ -27,11 +27,6 @@
     </dependency>
     <dependency>
       <groupId>org.openhab.core.bundles</groupId>
-      <artifactId>org.openhab.core.sitemap</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.openhab.core.bundles</groupId>
       <artifactId>org.openhab.core.ui</artifactId>
       <version>${project.version}</version>
     </dependency>
@@ -52,41 +47,6 @@
         </configuration>
       </plugin>
       <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>jaxb2-maven-plugin</artifactId>
-        <version>3.2.0</version>
-        <dependencies>
-          <dependency>
-            <groupId>org.glassfish.jaxb</groupId>
-            <artifactId>jaxb-runtime</artifactId>
-            <version>2.3.9</version>
-          </dependency>
-          <dependency>
-            <groupId>org.glassfish.jaxb</groupId>
-            <artifactId>jaxb-xjc</artifactId>
-            <version>2.3.9</version>
-          </dependency>
-        </dependencies>
-        <executions>
-          <execution>
-            <goals>
-              <goal>xjc</goal>
-            </goals>
-            <configuration>
-              <!-- The package of your generated sources -->
-              <packageName>org.openhab.ui.cometvisu.internal.backend.model.config.pure</packageName>
-              <sources>
-                <source>src/main/resources/visu_config.xsd</source>
-              </sources>
-              <outputDirectory>src-gen/</outputDirectory>
-              <locale>en</locale>
-              <clearOutputDir>false</clearOutputDir>
-              <generateEpisode>false</generateEpisode>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
         <groupId>org.openapitools</groupId>
         <artifactId>openapi-generator-maven-plugin</artifactId>
         <!-- RELEASE_VERSION -->
@@ -101,7 +61,7 @@
               <inputSpec>${project.basedir}/src/main/resources/openapi.yaml</inputSpec>
               <generatorName>jaxrs-spec</generatorName>
               <output>${project.basedir}</output>
-              <addCompileSourceRoot>false</addCompileSourceRoot>
+              <addCompileSourceRoot>true</addCompileSourceRoot>
               <packageName>org.openhab.ui.cometvisu.backend.rest</packageName>
               <apiPackage>org.openhab.ui.cometvisu.backend.rest.api</apiPackage>
               <generateApis>false</generateApis>

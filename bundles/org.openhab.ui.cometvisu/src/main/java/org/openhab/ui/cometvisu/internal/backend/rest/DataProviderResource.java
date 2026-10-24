@@ -40,7 +40,6 @@ import org.openhab.ui.cometvisu.internal.ManagerSettings;
 import org.openhab.ui.cometvisu.internal.backend.model.rest.DataProviderEntry;
 import org.openhab.ui.cometvisu.internal.backend.model.rest.DataProviderHint;
 import org.openhab.ui.cometvisu.internal.backend.model.rest.DataProviderResponse;
-import org.openhab.ui.cometvisu.internal.backend.sitemap.ConfigHelper.Transform;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
@@ -77,6 +76,19 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @Tag(name = Config.COMETVISU_BACKEND_ALIAS + "/data")
 @NonNullByDefault
 public class DataProviderResource implements RESTResource {
+    public enum Transform {
+        NUMBER,
+        SWITCH,
+        STRING,
+        ROLLERSHUTTER,
+        DATETIME,
+        TIME,
+        CONTACT,
+        DIMMER,
+        COLOR,
+        LOCATION
+    }
+
     private final Logger logger = LoggerFactory.getLogger(DataProviderResource.class);
 
     private final ItemRegistry itemRegistry;

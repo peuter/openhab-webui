@@ -13,17 +13,11 @@
 package org.openhab.ui.cometvisu.internal;
 
 import java.io.File;
-import java.util.HashSet;
-import java.util.Set;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.core.sitemap.registry.SitemapProvider;
 import org.openhab.core.ui.tiles.Tile;
 import org.osgi.service.component.annotations.Component;
-import org.osgi.service.component.annotations.Reference;
-import org.osgi.service.component.annotations.ReferenceCardinality;
-import org.osgi.service.component.annotations.ReferencePolicy;
 
 /**
  *
@@ -34,16 +28,6 @@ import org.osgi.service.component.annotations.ReferencePolicy;
 @Component(service = Tile.class, immediate = true)
 @NonNullByDefault
 public class CometVisuTile implements Tile {
-    private final Set<SitemapProvider> sitemapProviders = new HashSet<>();
-
-    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
-    public void addSitemapProvider(SitemapProvider provider) {
-        sitemapProviders.add(provider);
-    }
-
-    public void removeSitemapProvider(SitemapProvider provider) {
-        sitemapProviders.remove(provider);
-    }
 
     @Override
     public String getName() {
@@ -52,21 +36,6 @@ public class CometVisuTile implements Tile {
 
     @Override
     public String getUrl() {
-        Set<String> sitemapNames = new HashSet<>();
-        // collect all sitemap names
-        for (SitemapProvider provider : sitemapProviders) {
-            sitemapNames.addAll(provider.getSitemapNames());
-        }
-        String sitemap = "demo";
-        if (!sitemapNames.isEmpty()) {
-            if (sitemapNames.contains("demo")) {
-                // a demo sitemap exists, use this one instead
-                sitemap = "oh_demo";
-            } else {
-                // use the first available
-                sitemap = "oh_" + sitemapNames.iterator().next();
-            }
-        }
         String path = "/";
         // lets find the index.html
         File root = new File(Config.cometvisuWebfolder);
@@ -89,7 +58,7 @@ public class CometVisuTile implements Tile {
                 }
             }
         }
-        return Config.cometvisuWebappAlias + path + "?config=" + sitemap;
+        return Config.cometvisuWebappAlias + path;
     }
 
     @Override

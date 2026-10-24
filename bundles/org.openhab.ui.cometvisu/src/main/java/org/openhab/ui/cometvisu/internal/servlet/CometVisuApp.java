@@ -15,11 +15,9 @@ package org.openhab.ui.cometvisu.internal.servlet;
 import java.util.ArrayList;
 import java.util.Dictionary;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import javax.servlet.ServletException;
 
@@ -28,7 +26,6 @@ import org.openhab.core.events.EventPublisher;
 import org.openhab.core.items.ItemRegistry;
 import org.openhab.core.persistence.PersistenceService;
 import org.openhab.core.persistence.QueryablePersistenceService;
-import org.openhab.core.sitemap.registry.SitemapProvider;
 import org.openhab.core.ui.icon.IconProvider;
 import org.openhab.core.ui.items.ItemUIRegistry;
 import org.openhab.ui.cometvisu.internal.Config;
@@ -69,8 +66,6 @@ public class CometVisuApp {
     private ItemUIRegistry itemUIRegistry;
 
     private ItemRegistry itemRegistry;
-
-    private Set<SitemapProvider> sitemapProviders = new HashSet<>();
 
     private List<IconProvider> iconProviders = new ArrayList<>();
 
@@ -159,21 +154,8 @@ public class CometVisuApp {
         this.itemUIRegistry = null;
     }
 
-    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
-    public void addSitemapProvider(SitemapProvider provider) {
-        sitemapProviders.add(provider);
-    }
-
-    public void removeSitemapProvider(SitemapProvider provider) {
-        sitemapProviders.remove(provider);
-    }
-
     public ItemUIRegistry getItemUIRegistry() {
         return itemUIRegistry;
-    }
-
-    public Set<SitemapProvider> getSitemapProviders() {
-        return sitemapProviders;
     }
 
     @Reference
