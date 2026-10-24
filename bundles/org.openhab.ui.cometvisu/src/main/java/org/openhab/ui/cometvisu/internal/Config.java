@@ -16,6 +16,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Hashtable;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.core.OpenHAB;
 import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.DecimalType;
@@ -33,6 +34,7 @@ import org.openhab.core.types.State;
  * @author Tobias Bräutigam - Initial contribution
  *
  */
+@NonNullByDefault
 public class Config {
     private static ArrayList<IConfigChangeListener> listeners = new ArrayList<>();
 
@@ -52,8 +54,10 @@ public class Config {
     }
 
     public static void triggerConfigChange(String key) {
-        for (final IConfigChangeListener listener : Config.listeners) {
-            listener.handleConfigChange(key);
+        if (key != null) {
+            for (final IConfigChangeListener listener : Config.listeners) {
+                listener.handleConfigChange(key);
+            }
         }
     }
 

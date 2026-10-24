@@ -32,6 +32,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -47,8 +48,10 @@ import javax.ws.rs.core.MediaType;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.OpenHAB;
+import org.openhab.core.events.EventPublisher;
 import org.openhab.core.items.Item;
 import org.openhab.core.items.ItemNotFoundException;
+import org.openhab.core.items.ItemRegistry;
 import org.openhab.core.items.events.ItemEventFactory;
 import org.openhab.core.library.types.StringType;
 import org.openhab.core.persistence.FilterCriteria;
@@ -164,7 +167,8 @@ public class CometVisuServlet extends HttpServlet {
             if (requestedFile.endsWith(File.separator)) {
                 requestedFile = requestedFile.substring(0, requestedFile.length() - 1);
             }
-            file = new File(userFileFolder, URLDecoder.decode(requestedFile, StandardCharsets.UTF_8));
+            file = new File(userFileFolder,
+                    Objects.requireNonNull(URLDecoder.decode(requestedFile, StandardCharsets.UTF_8)));
             if (!file.getCanonicalPath().startsWith(userFileFolder.getCanonicalPath())
                     && !file.getCanonicalPath().equals(userFileFolder.getCanonicalPath())) {
                 return null;
@@ -173,7 +177,8 @@ public class CometVisuServlet extends HttpServlet {
         // serve the file from the cometvisu src directory
         if (file == null || !file.exists() || file.isDirectory()) {
             file = requestedFile != null
-                    ? new File(rootFolder, URLDecoder.decode(requestedFile, StandardCharsets.UTF_8))
+                    ? new File(rootFolder,
+                            Objects.requireNonNull(URLDecoder.decode(requestedFile, StandardCharsets.UTF_8)))
                     : rootFolder;
             if (!file.getCanonicalPath().startsWith(rootFolder.getCanonicalPath())
                     && !file.getCanonicalPath().equals(rootFolder.getCanonicalPath())) {
@@ -184,10 +189,13 @@ public class CometVisuServlet extends HttpServlet {
             // search for an index file
             FilenameFilter filter = (dir, name) -> name != null && name.startsWith("index.")
                     && (name.endsWith(".php") || name.endsWith(".html"));
-            for (String dirFile : file.list(filter)) {
-                // take the first one found
-                file = new File(file, dirFile);
-                break;
+            String[] indexFiles = file.list(filter);
+            if (indexFiles != null) {
+                for (String dirFile : indexFiles) {
+                    // take the first one found
+                    file = new File(file, Objects.requireNonNull(dirFile));
+                    break;
+                }
             }
         }
         return file;
@@ -214,8 +222,11 @@ public class CometVisuServlet extends HttpServlet {
 
         for (String name : itemNames) {
             try {
-                Item item = cometVisuApp.getItemRegistry().getItem(name);
-                items.add(item);
+                ItemRegistry itemRegistry = cometVisuApp.getItemRegistry();
+                if (itemRegistry != null) {
+                    Item item = itemRegistry.getItem(Objects.requireNonNull(name));
+                    items.add(item);
+                }
             } catch (ItemNotFoundException e) {
                 logger.error("item '{}' not found", name);
             }
@@ -238,8 +249,10 @@ public class CometVisuServlet extends HttpServlet {
                             + state + rssLogMessageSeparator + items.get(0).getName());
                     // Use the event publisher to store the item in the defined
                     // persistence services
-                    cometVisuApp.getEventPublisher()
-                            .post(ItemEventFactory.createCommandEvent(items.get(0).getName(), command));
+                    EventPublisher eventPublisher = cometVisuApp.getEventPublisher();
+                    if (eventPublisher != null) {
+                        eventPublisher.post(ItemEventFactory.createCommandEvent(items.get(0).getName(), command));
+                    }
                 }
                 // send empty response??
                 response.setContentType("text/plain");
@@ -267,16 +280,12 @@ public class CometVisuServlet extends HttpServlet {
                         "Cannot execute query: It is not possible to delete data from openHAB PersistenceService");
                 response.flushBuffer();
             } else {
-                Feed feed = new Feed();
+                Feed feed = new Feed("RSS supplied logs", "", "rss20");
                 StringBuffer reqUrl = request.getRequestURL();
                 if (reqUrl != null) {
                     feed.feedUrl = reqUrl.toString();
                     feed.link = feed.feedUrl;
                 }
-                feed.title = "RSS supplied logs";
-                feed.author = "";
-                feed.description = "RSS supplied logs";
-                feed.type = "rss20";
 
                 // Define the data filter
                 FilterCriteria filter = new FilterCriteria();
@@ -421,7 +430,8 @@ public class CometVisuServlet extends HttpServlet {
             // URL-decode the file name (might contain spaces and on) and
             // prepare
             // file object.
-            processFile = new File(rootFolder, URLDecoder.decode(requestedFile, StandardCharsets.UTF_8));
+            processFile = new File(rootFolder,
+                    Objects.requireNonNull(URLDecoder.decode(requestedFile, StandardCharsets.UTF_8)));
         } else {
             processFile = file;
         }
@@ -437,12 +447,12 @@ public class CometVisuServlet extends HttpServlet {
         // Check if file actually exists in filesystem.
         if (!processFile.exists()) {
             // show installation hints if the CometVisu-Clients main index.html is requested but cannot be found
-            if (processFile.getParentFile().equals(rootFolder)
+            if (!Objects.equals(processFile.getParentFile(), rootFolder)
                     && (processFile.getName().equalsIgnoreCase("index.html") || processFile.getName().isEmpty())) {
                 // looking for CometVisu clients index.html file
                 String path = null;
                 File folder = processFile.isDirectory() ? processFile : processFile.getParentFile();
-                if (folder.exists()) {
+                if (folder != null && folder.exists()) {
                     File index = ClientInstaller.findClientRoot(folder, "index.html");
                     path = index.exists() ? index.getPath().replaceFirst(rootFolder.getPath() + "/", "") : null;
                 }

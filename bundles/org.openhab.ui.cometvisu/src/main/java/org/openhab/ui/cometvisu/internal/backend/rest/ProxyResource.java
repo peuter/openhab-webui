@@ -293,7 +293,7 @@ public class ProxyResource implements RESTResource {
             if (type.isPresent()) {
                 String contentType = type.get();
                 builder.type(contentType);
-                if (contentType.equalsIgnoreCase("application/json")) {
+                if ("application/json".equalsIgnoreCase(contentType)) {
                     var json = new GsonBuilder().create().fromJson(new String(rawData), Object.class);
                     builder.entity(json);
                 } else if (contentType.startsWith("application/") || contentType.startsWith("text/")) {
@@ -305,7 +305,8 @@ public class ProxyResource implements RESTResource {
             }
             return Objects.requireNonNull(builder.build());
         } catch (IOException | InterruptedException e) {
-            return FsUtil.createErrorResponse(Status.BAD_REQUEST, e.getLocalizedMessage());
+            return FsUtil.createErrorResponse(Status.BAD_REQUEST,
+                    e.getLocalizedMessage() != null ? Objects.requireNonNull(e.getLocalizedMessage()) : "");
         }
     }
 }

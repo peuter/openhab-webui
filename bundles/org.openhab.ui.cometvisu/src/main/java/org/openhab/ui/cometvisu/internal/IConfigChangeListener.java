@@ -12,12 +12,15 @@
  */
 package org.openhab.ui.cometvisu.internal;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+
 /**
  * Interface for listeners to cometvisu backend config changes
  *
  * @author Tobias Bräutigam - Initial contribution
  *
  */
+@NonNullByDefault
 public interface IConfigChangeListener {
 
     /**

@@ -14,9 +14,12 @@ package org.openhab.ui.cometvisu.internal.util;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.util.Objects;
 
 import javax.ws.rs.core.Response.Status;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.ui.cometvisu.internal.ManagerSettings;
 import org.openhab.ui.cometvisu.internal.MountPoint;
 
@@ -26,22 +29,24 @@ import org.openhab.ui.cometvisu.internal.MountPoint;
  * @author Tobias Bräutigam - initial contribution
  *
  */
+@NonNullByDefault
 public class MountedFile {
     public static final String HIDDEN_CONFIG_FILENAME = "hidden.php";
 
+    @Nullable
     private MountPoint mount;
     private Path path;
     private Path relativeTargetPath;
 
     public MountedFile(String pathname) throws FileOperationException {
-        this.path = Path.of(normalize(pathname));
+        this.path = Objects.requireNonNull(Path.of(normalize(pathname)));
         this.relativeTargetPath = this.path;
         // find a mount point
         for (final MountPoint mount : ManagerSettings.getInstance().getMounts()) {
-            if (mount.contains(this.path)) {
+            if (mount.contains(Objects.requireNonNull(this.path))) {
                 this.mount = mount;
                 // remove the mount target from the path
-                this.path = this.mount.getTargetPath().relativize(this.path);
+                this.path = Objects.requireNonNull(this.mount.getTargetPath().relativize(this.path));
                 break;
             }
         }
@@ -58,7 +63,8 @@ public class MountedFile {
     }
 
     public MountedFile(MountPoint mount) {
-        this.path = mount.getTargetPath();
+        this.path = Objects.requireNonNull(mount.getTargetPath());
+        this.relativeTargetPath = this.path;
         this.mount = mount;
     }
 
@@ -69,18 +75,19 @@ public class MountedFile {
     }
 
     public MountPoint getMount() {
+    public @Nullable MountPoint getMount() {
         return mount;
     }
 
     public String getMountPath() {
-        return mount != null ? mount.getTargetPath().toString() : "";
+        return mount != null ? Objects.requireNonNull(mount.getTargetPath().toString()) : "";
     }
 
     public Path getAbsolutePath() {
         if (mount != null) {
-            return mount.getAbsoluteSource().resolve(path);
+            return Objects.requireNonNull(mount.getAbsoluteSource().resolve(path));
         } else {
-            return ManagerSettings.getInstance().getConfigPath().resolve(path);
+            return Objects.requireNonNull(ManagerSettings.getInstance().getConfigPath().resolve(path));
         }
     }
 
@@ -89,11 +96,11 @@ public class MountedFile {
     }
 
     public String getPath() {
-        return relativeTargetPath.toString();
+        return Objects.requireNonNull(relativeTargetPath.toString());
     }
 
     public File toFile() {
-        return getAbsolutePath().toFile();
+        return Objects.requireNonNull(getAbsolutePath().toFile());
     }
 
     public boolean exists() {
@@ -113,7 +120,8 @@ public class MountedFile {
     }
 
     public boolean hasChildren() {
-        return toFile().list().length > 0;
+        String[] list = toFile().list();
+        return list != null && list.length > 0;
     }
 
     private String normalize(String path) throws FileOperationException {

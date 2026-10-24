@@ -18,6 +18,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -154,7 +155,7 @@ public class DataProviderResource implements RESTResource {
             }
             group.add(entry);
         }
-        return Response.ok(groups).build();
+        return Objects.requireNonNull(Response.ok(groups).build());
     }
 
     @GET
@@ -185,7 +186,7 @@ public class DataProviderResource implements RESTResource {
             @ApiResponse(responseCode = "200", description = "OK") })
     public Response getInfluxDBFields(@QueryParam("auth") String auth, @QueryParam("measurement") String measurement) {
         // this is not supported by the openHAB backend
-        return Response.ok().build();
+        return Objects.requireNonNull(Response.ok().build());
     }
 
     @GET
@@ -195,7 +196,7 @@ public class DataProviderResource implements RESTResource {
             @ApiResponse(responseCode = "200", description = "OK") })
     public Response getInfluxDBTags(@QueryParam("auth") String auth, @QueryParam("measurement") String measurement) {
         // this is not supported by the openHAB backend
-        return Response.ok().build();
+        return Objects.requireNonNull(Response.ok().build());
     }
 
     @GET
@@ -205,7 +206,7 @@ public class DataProviderResource implements RESTResource {
             @ApiResponse(responseCode = "200", description = "OK") })
     public Response getInfluxDBs(@QueryParam("auth") String auth) {
         // this is not supported by the openHAB backend
-        return Response.ok().build();
+        return Objects.requireNonNull(Response.ok().build());
     }
 
     @GET
@@ -223,6 +224,6 @@ public class DataProviderResource implements RESTResource {
 
             }
         }
-        return Response.ok(res).build();
+        return Objects.requireNonNull(Response.ok(res).build());
     }
 }

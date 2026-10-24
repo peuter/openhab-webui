@@ -14,7 +14,6 @@ package org.openhab.ui.cometvisu.internal.backend.rest;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -81,9 +80,6 @@ public class ConfigResource implements RESTResource {
     private final Logger logger = LoggerFactory.getLogger(ConfigResource.class);
     private static final Pattern dataPattern = Pattern.compile("\\$data\\s*=\\s*'(.+)';",
             Pattern.DOTALL | Pattern.MULTILINE);
-    private static final Pattern sectionPattern = Pattern
-            .compile("\\s*(//)?\'([^']+)\'\\s*=>\\s*array\\s*\\(([^\\)]+)\\),?");
-    private static final Pattern optionPattern = Pattern.compile("\'([^']+)\'\\s*=>\\s*\\'([^']+)\\',?");
 
     @GET
     @Path("/download-client")
@@ -93,7 +89,7 @@ public class ConfigResource implements RESTResource {
     public Response triggerDownload() {
         logger.debug("calling installation checker with config overriding");
         ClientInstaller.getInstance().check(true);
-        return Response.ok().build();
+        return Objects.requireNonNull(Response.ok().build());
     }
 
     @POST
@@ -122,7 +118,7 @@ public class ConfigResource implements RESTResource {
         sec.put(key, body);
         try {
             writeHiddenConfig(config);
-            return Response.ok().build();
+            return Objects.requireNonNull(Response.ok().build());
         } catch (Exception e) {
             logger.error("{}", e.getMessage());
             return FsUtil.createErrorResponse(Status.INTERNAL_SERVER_ERROR, "error saving hidden config");
@@ -155,7 +151,7 @@ public class ConfigResource implements RESTResource {
         }
         try {
             writeHiddenConfig(config);
-            return Response.ok().build();
+            return Objects.requireNonNull(Response.ok().build());
         } catch (Exception e) {
             logger.error("{}", e.getMessage());
             return FsUtil.createErrorResponse(Status.INTERNAL_SERVER_ERROR, "error saving hidden config");
@@ -175,7 +171,7 @@ public class ConfigResource implements RESTResource {
         HiddenConfig config = loadHiddenConfig();
         if ("*".contentEquals(sectionKey)) {
             if ("*".contentEquals(key)) {
-                return Response.ok(config).build();
+                return Objects.requireNonNull(Response.ok(config).build());
             } else {
                 // invalid */key not allowed
                 return FsUtil.createErrorResponse(Status.FORBIDDEN, "invalid request");
@@ -188,10 +184,10 @@ public class ConfigResource implements RESTResource {
             }
             if ("*".contentEquals(key)) {
                 // return complete section
-                return Response.ok(section).build();
+                return Objects.requireNonNull(Response.ok(section).build());
             } else {
                 if (section.containsKey(key)) {
-                    return Response.ok(section.get(key)).build();
+                    return Objects.requireNonNull(Response.ok(section.get(key)).build());
                 } else {
                     return FsUtil.createErrorResponse(Status.NOT_FOUND, "option not found");
                 }
@@ -208,7 +204,7 @@ public class ConfigResource implements RESTResource {
             @ApiResponse(responseCode = "404", description = "config option does not exist") })
     public Response getHiddenConfig() {
         HiddenConfig config = loadHiddenConfig();
-        return Response.ok(config).build();
+        return Objects.requireNonNull(Response.ok(config).build());
     }
 
     @PUT
@@ -221,7 +217,7 @@ public class ConfigResource implements RESTResource {
             @Parameter(description = "Complete config content", required = true) HiddenConfig config) {
         try {
             writeHiddenConfig(config);
-            return Response.ok().build();
+            return Objects.requireNonNull(Response.ok().build());
         } catch (Exception e) {
             logger.error("{}", e.getMessage());
             return FsUtil.createErrorResponse(Status.INTERNAL_SERVER_ERROR, "error saving hidden config");
@@ -255,7 +251,7 @@ public class ConfigResource implements RESTResource {
         sec.put(key, body);
         try {
             writeHiddenConfig(config);
-            return Response.ok().build();
+            return Objects.requireNonNull(Response.ok().build());
         } catch (Exception e) {
             logger.error("{}", e.getMessage());
             return FsUtil.createErrorResponse(Status.INTERNAL_SERVER_ERROR, "error saving hidden config");
@@ -267,8 +263,8 @@ public class ConfigResource implements RESTResource {
         try {
             java.nio.file.Path hiddenConfigPath = ManagerSettings.getInstance().getConfigPath().resolve("hidden.php");
             if (hiddenConfigPath.toFile().exists()) {
-                List<String> content = Files.readAllLines(hiddenConfigPath);
-                return loadJson(String.join("\n", content));
+                String content = Files.readString(hiddenConfigPath);
+                return loadJson(content != null ? content : "");
             }
         } catch (IOException e) {
         }

@@ -72,10 +72,12 @@ public class CheckResource implements RESTResource {
         CheckResponse res = new CheckResponse();
         File configFolder = ManagerSettings.getInstance().getConfigFolder();
         List<File> filesToCheck = new ArrayList<>();
-        filesToCheck.add(configFolder);
-        filesToCheck.add(new File(configFolder.getAbsoluteFile() + File.separator + "media"));
-        filesToCheck.add(new File(configFolder.getAbsoluteFile() + File.separator + "backup"));
-        filesToCheck.add(new File(configFolder.getAbsoluteFile() + File.separator + "hidden.php"));
+        if (configFolder != null) {
+            filesToCheck.add(configFolder);
+            filesToCheck.add(new File(configFolder.getAbsoluteFile() + File.separator + "media"));
+            filesToCheck.add(new File(configFolder.getAbsoluteFile() + File.separator + "backup"));
+            filesToCheck.add(new File(configFolder.getAbsoluteFile() + File.separator + "hidden.php"));
+        }
 
         for (final File file : filesToCheck) {
             EnvironmentState state = new EnvironmentState();

@@ -14,6 +14,7 @@ package org.openhab.ui.cometvisu.internal.backend.rest;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Objects;
 
 import javax.annotation.security.RolesAllowed;
 import javax.ws.rs.PUT;
@@ -97,7 +98,7 @@ public class MoveResource implements RESTResource {
             }
             if (parentTarget.toFile().canWrite()) {
                 if (Files.move(sourceFile.getAbsolutePath(), targetFile.getAbsolutePath()) != null) {
-                    return Response.ok().build();
+                    return Objects.requireNonNull(Response.ok().build());
                 } else {
                     return FsUtil.createErrorResponse(Status.INTERNAL_SERVER_ERROR, "rename/move failed");
                 }

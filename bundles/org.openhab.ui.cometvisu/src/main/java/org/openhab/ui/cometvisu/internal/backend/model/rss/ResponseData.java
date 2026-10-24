@@ -17,6 +17,7 @@ package org.openhab.ui.cometvisu.internal.backend.model.rss;
  *
  * @author Tobias Bräutigam - Initial contribution
  */
+@SuppressWarnings("checkstyle:nonnullbydefault")
 public class ResponseData {
     public Feed feed;
 }

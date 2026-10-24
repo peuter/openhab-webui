@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.Objects;
 
 import javax.annotation.security.RolesAllowed;
 import javax.servlet.http.HttpServletRequest;
@@ -98,7 +99,7 @@ public class FsResource implements RESTResource {
                 if (!file.isReadonlyMount() && folder.canWrite()) {
                     try {
                         FsUtil.getInstance().saveFile(file.toFile(), body, hash);
-                        return Response.ok().build();
+                        return Objects.requireNonNull(Response.ok().build());
                     } catch (FileOperationException e) {
                         return FsUtil.createErrorResponse(e);
                     } catch (Exception e) {
@@ -132,13 +133,17 @@ public class FsResource implements RESTResource {
         try {
             MultipartRequestMap map = new MultipartRequestMap(request);
             File file = map.getFileParameter("file");
-            target = new MountedFile(Paths.get(path, file.getName()).toString());
+            if (file == null) {
+                return FsUtil.createErrorResponse(Status.BAD_REQUEST, "File parameter is missing");
+            }
+            target = new MountedFile(
+                    Objects.requireNonNull(path) + File.separator + Objects.requireNonNull(file.getName()));
             File folder = target.toFile().toPath().getParent().toFile();
             if (!target.exists() || force) {
                 if (!target.isReadonlyMount() && folder.canWrite()) {
                     try {
                         FsUtil.getInstance().saveFile(target.toFile(), new FileInputStream(file), hash);
-                        return Response.ok().build();
+                        return Objects.requireNonNull(Response.ok().build());
                     } catch (FileOperationException e) {
                         return FsUtil.createErrorResponse(e);
                     } catch (Exception e) {
@@ -178,23 +183,29 @@ public class FsResource implements RESTResource {
                 if (FsUtil.getInstance().isInTrash(file.toFile())) {
                     // really delete the file in trash
                     file.toFile().delete();
-                    return Response.ok().build();
+                    return Objects.requireNonNull(Response.ok().build());
                 } else {
                     // move to trash
-                    java.nio.file.Path inTrash = Paths.get(ManagerSettings.getInstance().getTrashPath(),
-                            file.getName());
-                    try {
-                        File trashFolder = new File(ManagerSettings.getInstance().getTrashPath());
-                        if (!trashFolder.exists()) {
-                            trashFolder.mkdir();
-                        }
-                        if (Files.move(file.getAbsolutePath(), inTrash, StandardCopyOption.REPLACE_EXISTING) != null) {
-                            return Response.ok().build();
-                        } else {
+                    String trashPath = ManagerSettings.getInstance().getTrashPath();
+                    if (trashPath != null && !trashPath.isEmpty()) {
+                        java.nio.file.Path inTrash = Paths.get(trashPath, file.getName());
+                        try {
+                            File trashFolder = new File(trashPath);
+                            if (!trashFolder.exists()) {
+                                trashFolder.mkdir();
+                            }
+                            if (Files.move(file.getAbsolutePath(), inTrash,
+                                    StandardCopyOption.REPLACE_EXISTING) != null) {
+                                return Objects.requireNonNull(Response.ok().build());
+                            } else {
+                                return FsUtil.createErrorResponse(Status.INTERNAL_SERVER_ERROR,
+                                        "error moving to trash");
+                            }
+                        } catch (IOException e) {
                             return FsUtil.createErrorResponse(Status.INTERNAL_SERVER_ERROR, "error moving to trash");
                         }
-                    } catch (IOException e) {
-                        return FsUtil.createErrorResponse(Status.INTERNAL_SERVER_ERROR, "error moving to trash");
+                    } else {
+                        return FsUtil.createErrorResponse(Status.INTERNAL_SERVER_ERROR, "trash path not configured");
                     }
                 }
             } else {
@@ -220,24 +231,24 @@ public class FsResource implements RESTResource {
             logger.debug("read request for: {}", file.getAbsolutePath());
             if (file.exists()) {
                 if (file.isDirectory()) {
-                    return Response.ok(FsUtil.getInstance().listDir(file, recursive), MediaType.APPLICATION_JSON)
-                            .build();
+                    return Objects.requireNonNull(Response
+                            .ok(FsUtil.getInstance().listDir(file, recursive), MediaType.APPLICATION_JSON).build());
                 } else if (download) {
-                    return Response.ok(file.toFile(), MediaType.APPLICATION_OCTET_STREAM)
-                            .header("Content-Disposition", "attachment; filename=\"" + file.getName() + "\"").build();
+                    return Objects.requireNonNull(Response.ok(file.toFile(), MediaType.APPLICATION_OCTET_STREAM)
+                            .header("Content-Disposition", "attachment; filename=\"" + file.getName() + "\"").build());
                 } else {
                     try {
                         String mimetype = Files.probeContentType(file.getAbsolutePath());
-                        return Response.ok(file.toFile(), mimetype).build();
+                        return Objects.requireNonNull(Response.ok(file.toFile(), mimetype).build());
                     } catch (IOException e) {
                         // use text type all fallback
-                        return Response.ok(file.toFile(), MediaType.TEXT_PLAIN).build();
+                        return Objects.requireNonNull(Response.ok(file.toFile(), MediaType.TEXT_PLAIN).build());
                     }
                 }
             } else if ("backup".equalsIgnoreCase(path)) {
                 // backup folder is always requested and will be created on demand, so we pretend as if its there and
                 // empty
-                return Response.ok(new ReadResponse(), MediaType.APPLICATION_JSON).build();
+                return Objects.requireNonNull(Response.ok(new ReadResponse(), MediaType.APPLICATION_JSON).build());
             } else {
                 return FsUtil.createErrorResponse(Status.NOT_FOUND, "file not found: " + file.getAbsolutePath());
             }
@@ -264,7 +275,7 @@ public class FsResource implements RESTResource {
                 if (target.canWrite()) {
                     try {
                         FsUtil.getInstance().saveFile(target.toFile(), body, hash);
-                        return Response.ok().build();
+                        return Objects.requireNonNull(Response.ok().build());
                     } catch (FileOperationException e) {
                         return FsUtil.createErrorResponse(e);
                     } catch (Exception e) {

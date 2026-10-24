@@ -12,12 +12,15 @@
  */
 package org.openhab.ui.cometvisu.internal;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+
 /**
  * Datastructure for a semver versioning information about the installed CometVisu version.
  * 
  * @author Tobias Bräutigam - Initial contribution
  *
  */
+@NonNullByDefault
 public class Version {
     public int major;
     public int minor;

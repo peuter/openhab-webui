@@ -14,12 +14,15 @@ package org.openhab.ui.cometvisu.internal.util;
 
 import javax.ws.rs.core.Response.Status;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+
 /**
  * Exception on file system operations that return a status code for the rest response
  *
  * @author Tobias Bräutigam - Initial contribution
  *
  */
+@NonNullByDefault
 public class FileOperationException extends Exception {
     private static final long serialVersionUID = 1L;
     private Status status;

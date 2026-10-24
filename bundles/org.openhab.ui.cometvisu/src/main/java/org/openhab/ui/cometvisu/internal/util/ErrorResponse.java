@@ -12,11 +12,14 @@
  */
 package org.openhab.ui.cometvisu.internal.util;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+
 /**
  *
  * @author Tobias Bräutigam - initial contribution
  *
  */
+@NonNullByDefault
 public class ErrorResponse {
     public String message;
 

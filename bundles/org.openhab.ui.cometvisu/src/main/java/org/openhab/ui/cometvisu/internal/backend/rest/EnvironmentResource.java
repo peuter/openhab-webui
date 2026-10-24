@@ -12,6 +12,8 @@
  */
 package org.openhab.ui.cometvisu.internal.backend.rest;
 
+import java.util.Objects;
+
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -62,6 +64,6 @@ public class EnvironmentResource implements RESTResource {
         String server = "Jetty/" + Server.getVersion();
         res.SERVER_SOFTWARE = server;
         res.SERVER_SIGNATURE = "<address>" + server + "</address>";
-        return Response.ok(res, MediaType.APPLICATION_JSON).build();
+        return Objects.requireNonNull(Response.ok(res, MediaType.APPLICATION_JSON).build());
     }
 }

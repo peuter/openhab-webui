@@ -25,6 +25,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Objects;
 import java.util.Random;
 import java.util.regex.Pattern;
 import java.util.zip.CRC32;
@@ -35,6 +36,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.ui.cometvisu.internal.ManagerSettings;
 import org.openhab.ui.cometvisu.internal.MountPoint;
 import org.openhab.ui.cometvisu.internal.backend.model.rest.FsEntry;
@@ -49,15 +51,13 @@ import org.slf4j.LoggerFactory;
  * @author Tobias Bräutigam - initial contribution
  *
  */
+@NonNullByDefault
 public class FsUtil {
     private final Logger logger = LoggerFactory.getLogger(FsUtil.class);
-    private static FsUtil instance;
+    private static FsUtil instance = new FsUtil();
     private DateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
 
     public static FsUtil getInstance() {
-        if (FsUtil.instance == null) {
-            FsUtil.instance = new FsUtil();
-        }
         return FsUtil.instance;
     }
 
@@ -67,21 +67,24 @@ public class FsUtil {
         File dir = mdir.toFile();
         boolean trashExists = false;
         boolean isConfigFolder = dir.toPath().equals(ManagerSettings.getInstance().getConfigFolder().toPath());
-        for (final File fileEntry : dir.listFiles()) {
-            boolean isTrash = false;
-            if (isConfigFolder) {
-                if (fileEntry.getName().equals(ManagerSettings.getInstance().getTrashFolder())) {
-                    trashExists = true;
-                    isTrash = true;
+        File[] files = dir.listFiles();
+        if (files != null) {
+            for (final File fileEntry : files) {
+                boolean isTrash = false;
+                if (isConfigFolder) {
+                    if (fileEntry.getName().equals(ManagerSettings.getInstance().getTrashFolder())) {
+                        trashExists = true;
+                        isTrash = true;
+                    }
                 }
-            }
-            if (!fileEntry.isHidden() || isTrash) {
-                FsEntry entry = fs.getEntry(fileEntry, recursive, mdir);
-                if (isTrash) {
-                    entry.setTrash(true);
-                    entry.setWriteable(false);
+                if (!fileEntry.isHidden() || isTrash) {
+                    FsEntry entry = fs.getEntry(fileEntry, recursive, mdir);
+                    if (isTrash) {
+                        entry.setTrash(true);
+                        entry.setWriteable(false);
+                    }
+                    read.add(entry);
                 }
-                read.add(entry);
             }
         }
         // some special customizations in the config folder
@@ -90,7 +93,12 @@ public class FsUtil {
             Path requestedPath = dir.toPath();
             for (final MountPoint mount : ManagerSettings.getInstance().getMounts()) {
                 if (mount.getAbsoluteTarget().getParent().equals(requestedPath)) {
-                    read.add(fs.getEntry(new MountedFile(mount), recursive));
+                    try {
+                        read.add(fs.getEntry(new MountedFile(mount), recursive));
+                    } catch (FileOperationException e) {
+                        logger.error("Failed to create MountedFile for mount: {}", mount, e);
+                        continue;
+                    }
                 }
             }
             if (!trashExists) {
@@ -109,6 +117,9 @@ public class FsUtil {
     public boolean isInTrash(File file) {
         String absPath = file.getAbsolutePath();
         String absTrashPath = ManagerSettings.getInstance().getTrashPath();
+        if (absTrashPath == null || absTrashPath.isEmpty()) {
+            return false;
+        }
         return absPath.startsWith(absTrashPath) && absPath.length() > absTrashPath.length();
     }
 
@@ -229,7 +240,8 @@ public class FsUtil {
     }
 
     public void saveFile(File file, String content, String hash) throws FileOperationException {
-        this.saveFile(file, new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)), hash);
+        this.saveFile(file, new ByteArrayInputStream(content.getBytes(Objects.requireNonNull(StandardCharsets.UTF_8))),
+                hash);
     }
 
     /**
@@ -251,16 +263,20 @@ public class FsUtil {
         FsEntry entry = new FsEntry();
         entry.setType(file.isDirectory() ? FsEntry.TypeEnum.DIR : FsEntry.TypeEnum.FILE);
         entry.setName(file.getName());
-        entry.setHasChildren(file.isDirectory() && file.listFiles().length > 0);
         entry.setParentFolder(mount.getPath());
         entry.setWriteable(!mount.isReadonlyMount() && file.canWrite());
         entry.setReadable(file.canRead());
         entry.setMounted(false);
         entry.setInTrash(this.isInTrash(file));
-        if (recursive && entry.getHasChildren()) {
-            for (final File fileEntry : file.listFiles()) {
-                if (!fileEntry.isHidden()) {
-                    entry.getChildren().add(this.getEntry(fileEntry, recursive, mount));
+
+        File[] listFiles = file.listFiles();
+        if (listFiles != null) {
+            entry.setHasChildren(file.isDirectory() && listFiles.length > 0);
+            if (recursive && entry.getHasChildren()) {
+                for (final File fileEntry : listFiles) {
+                    if (!fileEntry.isHidden()) {
+                        entry.getChildren().add(this.getEntry(fileEntry, recursive, mount));
+                    }
                 }
             }
         }
@@ -268,22 +284,29 @@ public class FsUtil {
         return entry;
     }
 
-    public FsEntry getEntry(MountedFile mfile, boolean recursive) {
+    public FsEntry getEntry(MountedFile mfile, boolean recursive) throws FileOperationException {
         MountPoint mount = mfile.getMount();
+        if (mount == null) {
+            throw new FileOperationException("MountedFile has no mount", Status.NOT_ACCEPTABLE);
+        }
         Path mountTarget = mount.getTargetPath();
         File file = mount.getAbsoluteSource().toFile();
         FsEntry entry = new FsEntry();
         entry.setType(FsEntry.TypeEnum.DIR);
         entry.setName(mount.getName());
-        entry.setHasChildren(file.listFiles().length > 0);
         entry.setParentFolder(mountTarget.getParent() == null ? "" : mountTarget.getParent().toString());
         entry.setWriteable(mount.isWriteable() && file.canWrite());
         entry.setReadable(file.canRead());
         entry.setMounted(true);
-        if (recursive && entry.getHasChildren()) {
-            for (final File fileEntry : file.listFiles()) {
-                if (!fileEntry.isHidden() && (fileEntry.isFile() || mount.isShowSubDirs())) {
-                    entry.getChildren().add(this.getEntry(fileEntry, recursive, mfile));
+
+        File[] listFiles = file.listFiles();
+        if (listFiles != null) {
+            entry.setHasChildren(listFiles.length > 0);
+            if (recursive && entry.getHasChildren()) {
+                for (final File fileEntry : listFiles) {
+                    if (!fileEntry.isHidden() && (fileEntry.isFile() || mount.isShowSubDirs())) {
+                        entry.getChildren().add(this.getEntry(fileEntry, recursive, mfile));
+                    }
                 }
             }
         }
@@ -292,10 +315,12 @@ public class FsUtil {
     }
 
     public static Response createErrorResponse(FileOperationException e) {
-        return FsUtil.createErrorResponse(e.getStatus(), e.getMessage());
+        return Objects.requireNonNull(FsUtil.createErrorResponse(e.getStatus(),
+                e.getMessage() != null ? Objects.requireNonNull(e.getMessage()) : ""));
     }
 
     public static Response createErrorResponse(Status status, String message) {
-        return Response.status(status).entity(new ErrorResponse(message)).type(MediaType.APPLICATION_JSON).build();
+        return Objects.requireNonNull(
+                Response.status(status).entity(new ErrorResponse(message)).type(MediaType.APPLICATION_JSON).build());
     }
 }

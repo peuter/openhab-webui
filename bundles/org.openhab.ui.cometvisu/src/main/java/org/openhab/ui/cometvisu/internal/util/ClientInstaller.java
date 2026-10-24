@@ -17,18 +17,23 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.io.net.http.HttpUtil;
 import org.openhab.ui.cometvisu.internal.Config;
 import org.slf4j.Logger;
@@ -43,6 +48,7 @@ import com.google.gson.Gson;
  * @author Tobias Bräutigam - Initial contribution
  *
  */
+@NonNullByDefault
 public class ClientInstaller {
 
     private final Logger logger = LoggerFactory.getLogger(ClientInstaller.class);
@@ -57,6 +63,7 @@ public class ClientInstaller {
 
     private static final byte[] BUFFER = new byte[0xFFFF];
 
+    @Nullable
     private Map<String, Object> latestRelease;
 
     /** Regular expression to parse semver version strings */
@@ -88,6 +95,9 @@ public class ClientInstaller {
      * @param force {boolean} force downloading if client not found
      */
     public void check(boolean force) {
+        if (Config.cometvisuWebfolder.isEmpty()) {
+            throw new IllegalArgumentException("cometvisuWebfolder must not be null or empty");
+        }
         if (alreadyCheckedFolders.contains(Config.cometvisuWebfolder) && !force) {
             // this folder has been checked already
             logger.debug("web folder {} has already been checked", Config.cometvisuWebfolder);
@@ -95,10 +105,10 @@ public class ClientInstaller {
         }
         if (!force) {
             // do not add the forced checks
-            alreadyCheckedFolders.add(Config.cometvisuWebfolder);
+            alreadyCheckedFolders.add(Objects.requireNonNull(Config.cometvisuWebfolder));
         }
 
-        File webFolder = new File(Config.cometvisuWebfolder);
+        File webFolder = new File(Objects.requireNonNull(Config.cometvisuWebfolder));
         if (!webFolder.exists()) {
             logger.debug("creating cometvisu webfolder {}", webFolder.getAbsolutePath());
             webFolder.mkdirs();
@@ -119,6 +129,10 @@ public class ClientInstaller {
             } else {
                 // check for upgrades
                 Map<String, Object> latestRelease = getLatestRelease();
+                if (latestRelease == null) {
+                    logger.error("no latest release found");
+                    return;
+                }
 
                 // find version in local client
                 File version = findClientRoot(webFolder, "version");
@@ -158,6 +172,9 @@ public class ClientInstaller {
      * @return
      */
     public static File findClientRoot(File webFolder, String fileName) {
+        if (!webFolder.exists() || !webFolder.isDirectory()) {
+            throw new IllegalArgumentException("webFolder must be an existing directory");
+        }
         File file = new File(webFolder, fileName);
         if (!file.exists()) {
             File build = new File(webFolder, "build");
@@ -206,8 +223,8 @@ public class ClientInstaller {
         boolean equal = true;
 
         for (int i = 1; i <= 3; i++) {
-            int relVer = Integer.parseInt(release.group(i));
-            int curVer = Integer.parseInt(current.group(i));
+            int relVer = Integer.parseInt(java.util.Objects.requireNonNull(release.group(i)));
+            int curVer = Integer.parseInt(java.util.Objects.requireNonNull(current.group(i)));
             if (relVer > curVer) {
                 return false;
             } else if (relVer < curVer) {
@@ -222,7 +239,7 @@ public class ClientInstaller {
      *
      * @return {Map}
      */
-    private Map<String, Object> getLatestRelease() {
+    private @Nullable Map<String, Object> getLatestRelease() {
         if (latestRelease == null) {
             Properties headers = new Properties();
             headers.setProperty("Accept", "application/json");
@@ -231,8 +248,13 @@ public class ClientInstaller {
                 if (response == null) {
                     logger.error("No response received from '{}'", RELEASE_URL);
                 } else {
+                    @SuppressWarnings("unchecked")
                     List<Map<String, Object>> jsonResponse = new Gson().fromJson(response, ArrayList.class);
 
+                    if (jsonResponse == null || jsonResponse.isEmpty()) {
+                        logger.error("No releases found in the response from '{}'", RELEASE_URL);
+                        return null;
+                    }
                     // releases are ordered top-down, the latest release comes first
                     for (Map<String, Object> release : jsonResponse) {
                         if (!((boolean) release.getOrDefault("prerelease", true))
@@ -254,16 +276,30 @@ public class ClientInstaller {
      */
     public void downloadLatestRelease() {
         // request the download URL for the latest CometVisu release from the github API
+        @Nullable
         Map<String, Object> latestRelease = getLatestRelease();
-        List<Map<String, Object>> assets = (List<Map<String, Object>>) latestRelease.get("assets");
+        if (latestRelease == null) {
+            logger.error("no latest release found");
+            return;
+        }
+        Object assetsResponse = latestRelease.get("assets");
 
         Map<String, Object> releaseAsset = null;
-        for (Map<String, Object> asset : assets) {
-            String contentType = ((String) asset.getOrDefault("content_type", ""));
-            String name = ((String) asset.getOrDefault("name", ""));
-            if (contentType.equalsIgnoreCase("application/zip")
-                    || (contentType.equalsIgnoreCase("binary/octet-stream") && name.endsWith(".zip"))) {
-                releaseAsset = asset;
+        if (!(assetsResponse instanceof List<?> assets) || assets.isEmpty()) {
+            logger.error("no assets found for release {}", latestRelease.get("name"));
+            return;
+        }
+        for (Object assetResponse : assets) {
+            if (!(assetResponse instanceof Map<?, ?> asset)) {
+                continue;
+            }
+            String contentType = asset.get("content_type") instanceof String type ? type : "";
+            String name = asset.get("name") instanceof String assetName ? assetName : "";
+            if ("application/zip".equalsIgnoreCase(contentType)
+                    || ("binary/octet-stream".equalsIgnoreCase(contentType) && name.endsWith(".zip"))) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> typedAsset = (Map<String, Object>) asset;
+                releaseAsset = typedAsset;
                 break;
             }
         }
@@ -272,16 +308,18 @@ public class ClientInstaller {
         } else {
             File releaseFile = new File("release.zip");
             try {
-                URL url = new URL((String) releaseAsset.get("browser_download_url"));
+                URL url = new URI((String) releaseAsset.get("browser_download_url")).toURL();
                 try (FileOutputStream fos = new FileOutputStream(releaseFile)) {
                     url.openStream().transferTo(fos);
                     fos.flush();
                 }
 
                 ZipFile zip = new ZipFile(releaseFile, ZipFile.OPEN_READ);
-                extractFolder("cometvisu/release/", zip, Config.cometvisuWebfolder);
+                extractFolder("cometvisu/release/", zip, Objects.requireNonNull(Config.cometvisuWebfolder));
             } catch (IOException e) {
                 logger.error("error opening release zip file {}", e.getMessage(), e);
+            } catch (URISyntaxException e) {
+                logger.error("error creating URL from release asset {}", e.getMessage(), e);
             } finally {
                 if (releaseFile.exists()) {
                     releaseFile.delete();
@@ -298,8 +336,12 @@ public class ClientInstaller {
      * @param destDir {String} destination for the extracted files
      */
     private void extractFolder(String folderName, ZipFile zipFile, String destDir) {
+        if (folderName.isEmpty()) {
+            logger.error("folderName is null or empty");
+            return;
+        }
         for (ZipEntry entry : Collections.list(zipFile.entries())) {
-            if (entry.getName().startsWith(folderName)) {
+            if (entry != null && entry.getName().startsWith(folderName)) {
                 String target = entry.getName().substring(folderName.length());
                 File file = new File(destDir, target);
                 if (entry.isDirectory()) {

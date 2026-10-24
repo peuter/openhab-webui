@@ -18,10 +18,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,17 +33,20 @@ import org.slf4j.LoggerFactory;
  * @author Tobias Bräutigam - initial contribution
  *
  */
+@NonNullByDefault
 public class ManagerSettings implements IConfigChangeListener {
     private final Logger logger = LoggerFactory.getLogger(ManagerSettings.class);
-    private static ManagerSettings instance;
-    private File baseDir;
-    private File configFolder;
+    private static ManagerSettings instance = new ManagerSettings();
+    private File baseDir = new File(Objects.requireNonNull(Config.cometvisuWebfolder));
+    // default config-folder for CometVisu >= 0.12.0
+    private File configFolder = new File(
+            baseDir.getAbsolutePath() + File.separator + "resource" + File.separator + "config");
     private String resourcesDir = "resource";
     private String designsDir = resourcesDir + File.separator + "designs";
     private String trashFolderName = ".trash";
     private String backupFolderName = "backup";
     private List<Pattern> backupOnChange = new ArrayList<>();
-    private Version cometVisuVersion;
+    private Version cometVisuVersion = new Version();
     public static Pattern versionPattern = Pattern.compile("^(\\d+)\\.(\\d+)\\.(\\d+)-?(\\w)?$");
 
     private List<MountPoint> mounts = new ArrayList<>();
@@ -56,17 +61,11 @@ public class ManagerSettings implements IConfigChangeListener {
     }
 
     public static ManagerSettings getInstance() {
-        if (ManagerSettings.instance == null) {
-            ManagerSettings.instance = new ManagerSettings();
-        }
         return ManagerSettings.instance;
     }
 
     private void init() {
-        baseDir = new File(Config.cometvisuWebfolder);
-
         // set default version values
-        cometVisuVersion = new Version();
         cometVisuVersion.major = 0;
         cometVisuVersion.minor = 12;
         cometVisuVersion.patch = 0;
@@ -79,9 +78,9 @@ public class ManagerSettings implements IConfigChangeListener {
             sc.close();
             Matcher matcher = ManagerSettings.versionPattern.matcher(versionContent);
             if (matcher.find()) {
-                cometVisuVersion.major = Integer.parseInt(matcher.group(1));
-                cometVisuVersion.minor = Integer.parseInt(matcher.group(2));
-                cometVisuVersion.patch = Integer.parseInt(matcher.group(3));
+                cometVisuVersion.major = Integer.parseInt(Objects.requireNonNull(matcher.group(1)));
+                cometVisuVersion.minor = Integer.parseInt(Objects.requireNonNull(matcher.group(2)));
+                cometVisuVersion.patch = Integer.parseInt(Objects.requireNonNull(matcher.group(3)));
                 cometVisuVersion.dev = "dev".equals(matcher.group(4));
             }
         } catch (FileNotFoundException e) {
@@ -91,17 +90,14 @@ public class ManagerSettings implements IConfigChangeListener {
         if (cometVisuVersion.major == 0 && cometVisuVersion.minor < 11) {
             // non qx version
             configFolder = new File(baseDir.getAbsolutePath() + File.separator + "config");
-        } else {
-            // qx version with resource folder#
-            configFolder = new File(
-                    baseDir.getAbsolutePath() + File.separator + "resource" + File.separator + "config");
         }
     }
 
     private void refreshMounts() {
         mounts.clear();
         // always mount the demo folder
-        mounts.add(new MountPoint(Paths.get("demo"), Paths.get("resource", "demo")));
+        mounts.add(new MountPoint(Objects.requireNonNull(Paths.get("demo")),
+                Objects.requireNonNull(Paths.get("resource", "demo"))));
         // when serving source version, a mount can lookup 2 directory levels
         boolean allowLookup = baseDir.getPath().endsWith("compiled/source");
         Pattern lookupMount = Pattern.compile("^(\\.\\.\\/){0,2}\\w+");
@@ -118,7 +114,8 @@ public class ManagerSettings implements IConfigChangeListener {
                         if (source.startsWith(File.separator)) {
                             source = source.substring(1);
                         }
-                        MountPoint mount = new MountPoint(Paths.get(target), Paths.get(source), showSubDirs, writeable);
+                        MountPoint mount = new MountPoint(Objects.requireNonNull(Paths.get(target)),
+                                Objects.requireNonNull(Paths.get(source)), showSubDirs, writeable);
                         mounts.add(mount);
                     }
                 }
@@ -174,7 +171,7 @@ public class ManagerSettings implements IConfigChangeListener {
     }
 
     public File getDesignFolder() {
-        return new File(baseDir, designsDir);
+        return new File(baseDir, Objects.requireNonNull(designsDir));
     }
 
     public List<Pattern> getBackupOnChange() {
@@ -191,10 +188,12 @@ public class ManagerSettings implements IConfigChangeListener {
 
     @Override
     public void handleConfigChange(String key) {
-        if (key.equals(Config.COMETVISU_WEBFOLDER_PROPERTY)) {
-            baseDir = new File(Config.cometvisuWebfolder);
-        } else if (key.equals(Config.COMETVISU_MOUNTPOINTS)) {
-            refreshMounts();
+        if (key != null) {
+            if (key.equals(Config.COMETVISU_WEBFOLDER_PROPERTY)) {
+                baseDir = new File(Objects.requireNonNull(Config.cometvisuWebfolder));
+            } else if (key.equals(Config.COMETVISU_MOUNTPOINTS)) {
+                refreshMounts();
+            }
         }
     }
 

@@ -13,6 +13,9 @@
 package org.openhab.ui.cometvisu.internal;
 
 import java.nio.file.Path;
+import java.util.Objects;
+
+import org.eclipse.jdt.annotation.NonNullByDefault;
 
 /**
  * Defines a mount point used in the backend filesystem
@@ -20,6 +23,7 @@ import java.nio.file.Path;
  * @author Tobias Bräutigam - initial contribution
  *
  */
+@NonNullByDefault
 public class MountPoint {
     /**
      * Target path for the mount, relative to the CometVisu config folder
@@ -72,7 +76,7 @@ public class MountPoint {
     }
 
     public String getName() {
-        return this.targetPath.getName(this.targetPath.getNameCount() - 1).toString();
+        return Objects.requireNonNull(this.targetPath.getName(this.targetPath.getNameCount() - 1).toString());
     }
 
     /**
@@ -80,7 +84,7 @@ public class MountPoint {
      * @return Absolute path to the source of this mount
      */
     public Path getAbsoluteSource() {
-        return ManagerSettings.getInstance().getCometVisuPath().resolve(this.sourcePath);
+        return Objects.requireNonNull(ManagerSettings.getInstance().getCometVisuPath().resolve(this.sourcePath));
     }
 
     /**
@@ -88,6 +92,7 @@ public class MountPoint {
      * @return Absolute path to the target of this mount
      */
     public Path getAbsoluteTarget() {
-        return ManagerSettings.getInstance().getConfigFolder().toPath().resolve(this.targetPath);
+        return Objects
+                .requireNonNull(ManagerSettings.getInstance().getConfigFolder().toPath().resolve(this.targetPath));
     }
 }

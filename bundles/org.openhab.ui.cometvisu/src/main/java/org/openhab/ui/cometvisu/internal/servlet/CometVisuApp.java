@@ -18,9 +18,12 @@ import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import javax.servlet.ServletException;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.config.core.ConfigurableService;
 import org.openhab.core.events.EventPublisher;
 import org.openhab.core.items.ItemRegistry;
@@ -55,22 +58,25 @@ import org.slf4j.LoggerFactory;
 @Component(immediate = true, service = CometVisuApp.class, configurationPid = "org.openhab.cometvisu", //
         property = Constants.SERVICE_PID + "=org.openhab.cometvisu")
 @ConfigurableService(category = "ui", label = "CometVisu", description_uri = CometVisuApp.CONFIG_URI)
+@NonNullByDefault
 public class CometVisuApp {
 
     private final Logger logger = LoggerFactory.getLogger(CometVisuApp.class);
 
     protected static final String CONFIG_URI = "ui:cometvisu";
 
+    @Nullable
     protected HttpService httpService;
-
+    @Nullable
     private ItemUIRegistry itemUIRegistry;
-
+    @Nullable
     private ItemRegistry itemRegistry;
 
     private List<IconProvider> iconProviders = new ArrayList<>();
-
+    @Nullable
     private EventPublisher eventPublisher;
 
+    @Nullable
     private CometVisuServlet servlet;
 
     protected static Map<String, QueryablePersistenceService> persistenceServices = new HashMap<>();
@@ -87,7 +93,7 @@ public class CometVisuApp {
         properties = props;
     }
 
-    public CometVisuServlet getServlet() {
+    public @Nullable CometVisuServlet getServlet() {
         return servlet;
     }
 
@@ -100,7 +106,7 @@ public class CometVisuApp {
         this.eventPublisher = null;
     }
 
-    public EventPublisher getEventPublisher() {
+    public @Nullable EventPublisher getEventPublisher() {
         return this.eventPublisher;
     }
 
@@ -137,7 +143,7 @@ public class CometVisuApp {
         this.itemRegistry = itemRegistry;
     }
 
-    public ItemRegistry getItemRegistry() {
+    public @Nullable ItemRegistry getItemRegistry() {
         return itemRegistry;
     }
 
@@ -154,7 +160,7 @@ public class CometVisuApp {
         this.itemUIRegistry = null;
     }
 
-    public ItemUIRegistry getItemUIRegistry() {
+    public @Nullable ItemUIRegistry getItemUIRegistry() {
         return itemUIRegistry;
     }
 
@@ -170,11 +176,11 @@ public class CometVisuApp {
     private void readConfiguration(final Map<String, Object> properties) {
         if (properties != null) {
             setProperties(properties);
-            if (properties.get(Config.COMETVISU_WEBFOLDER_PROPERTY) != null) {
-                Config.setCometVisuFolder((String) properties.get(Config.COMETVISU_WEBFOLDER_PROPERTY));
+            if (properties.get(Config.COMETVISU_WEBFOLDER_PROPERTY) instanceof String webFolder) {
+                Config.setCometVisuFolder(webFolder);
             }
-            if (properties.get(Config.COMETVISU_WEBAPP_ALIAS_PROPERTY) != null) {
-                Config.cometvisuWebappAlias = (String) properties.get(Config.COMETVISU_WEBAPP_ALIAS_PROPERTY);
+            if (properties.get(Config.COMETVISU_WEBAPP_ALIAS_PROPERTY) instanceof String webAppAlias) {
+                Config.cometvisuWebappAlias = webAppAlias;
             }
             if (properties.get(Config.COMETVISU_AUTODOWNLOAD_PROPERTY) != null) {
                 Object propertyValue = properties.get(Config.COMETVISU_AUTODOWNLOAD_PROPERTY);
@@ -203,8 +209,12 @@ public class CometVisuApp {
 
                 logger.debug("Property: {}->{}:{}, Parts {}", propPid, propKey, properties.get(key), parts.length);
                 if (!propPid.isEmpty()) {
-                    if (Config.configMappings.containsKey(propPid)) {
-                        Config.configMappings.get(propPid).put(propKey, properties.get(key));
+                    @Nullable
+                    Hashtable<String, Object> mapping = Config.configMappings.get(propPid);
+                    Object value = properties.get(key);
+
+                    if (mapping != null && propKey != null && value != null) {
+                        mapping.put(propKey, value);
                         if (!changedKeys.contains(propPid)) {
                             changedKeys.add(propPid);
                         }
@@ -212,7 +222,9 @@ public class CometVisuApp {
                 }
             }
             for (final String key : changedKeys) {
-                Config.triggerConfigChange(key);
+                if (key != null) {
+                    Config.triggerConfigChange(key);
+                }
             }
         }
     }
@@ -251,16 +263,20 @@ public class CometVisuApp {
         }
 
         Dictionary<String, String> servletParams = new Hashtable<>();
-        servlet = new CometVisuServlet(Config.cometvisuWebfolder, this);
+        servlet = new CometVisuServlet(Objects.requireNonNull(Config.cometvisuWebfolder), this);
         try {
-            httpService.registerServlet(Config.cometvisuWebappAlias, servlet, servletParams, null);
+            if (httpService != null) {
+                httpService.registerServlet(Config.cometvisuWebappAlias, servlet, servletParams, null);
+            }
         } catch (ServletException | NamespaceException e) {
             logger.error("Error during servlet startup", e);
         }
     }
 
     private void unregisterServlet() {
-        httpService.unregister(Config.cometvisuWebappAlias);
+        if (httpService != null) {
+            httpService.unregister(Config.cometvisuWebappAlias);
+        }
     }
 
     /**
@@ -273,9 +289,6 @@ public class CometVisuApp {
     @Modified
     protected void modified(Map<String, Object> configProps) throws ConfigurationException {
         logger.info("updated({})", configProps);
-        if (configProps == null) {
-            return;
-        }
         if (configProps.containsKey(Config.COMETVISU_WEBFOLDER_PROPERTY)
                 || configProps.containsKey(Config.COMETVISU_WEBAPP_ALIAS_PROPERTY)) {
             unregisterServlet();

@@ -13,6 +13,7 @@
 package org.openhab.ui.cometvisu.internal;
 
 import java.io.File;
+import java.util.Objects;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -38,7 +39,7 @@ public class CometVisuTile implements Tile {
     public String getUrl() {
         String path = "/";
         // lets find the index.html
-        File root = new File(Config.cometvisuWebfolder);
+        File root = new File(Objects.requireNonNull(Config.cometvisuWebfolder));
         File index = new File(root, "index.html");
         if (index.exists()) {
             path = "/index.html";
